@@ -1,0 +1,63 @@
+name: Metrics
+
+on:
+  # Раз в 6 часов. Минуты смещены: ровно в :00 GitHub задерживает запуски в часы пик.
+  schedule:
+    - cron: "37 */6 * * *"
+  # Кнопка "Run workflow" во вкладке Actions — обновить прямо сейчас.
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  metrics:
+    runs-on: ubuntu-latest
+    steps:
+      # output_action: none — экшен только генерирует SVG в metrics_renders/,
+      # никаких коммитов не делает. Публикуем их сами, шагом ниже.
+      - name: Общая статистика
+        uses: lowlighter/metrics@v3.34
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          user: q0tik
+          filename: metrics.svg
+          output_action: none
+          base: header, activity, community, repositories
+          config_timezone: UTC
+
+      - name: Языки
+        uses: lowlighter/metrics@v3.34
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          user: q0tik
+          filename: metrics-languages.svg
+          output_action: none
+          base: ""
+          plugin_languages: yes
+          plugin_languages_limit: 6
+
+      # Ветка assets пересоздаётся с нуля и force-push'ится, поэтому на ней
+      # ВСЕГДА ровно один коммит. История не накапливается, репа не пухнет.
+      - name: Публикация на ветку assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ls -lh metrics_renders/
+
+          rm -rf /tmp/pub && mkdir -p /tmp/pub
+          cp metrics_renders/*.svg /tmp/pub/
+
+          cd /tmp/pub
+          git init -q -b assets
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -qm "metrics: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" assets
+
+          echo "Опубликовано:"
+          git log --oneline
