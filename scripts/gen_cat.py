@@ -41,12 +41,16 @@ BLINK = [(12, 5)]  # веко поверх глаза
 # Хвост — полосатый, две позы
 # Обе позы — замкнутые силуэты: в каждой строке обводка слева и справа,
 # а верхняя строка накрывает шерсть под собой. Иначе в кадре зияет дыра.
-# Качается только кончик: основание в обеих позах одинаковое и вплотную
-# примыкает к спине. Иначе у стыка возникает запертая прозрачная клетка.
-TAILS = [
-    [".OO..", "OKKO.", "OBBO.", "OKKO.", "OBBO.", "OKKO."],
-    ["..OO.", ".OKKO", ".OBBO", "OKKO.", "OBBO.", "OKKO."],
-]
+# Три позы: кончик уходит влево -> прямо -> вправо. Нижние две строки
+# во всех кадрах одинаковы и стоят прямо на крупе — иначе хвост выглядит
+# приставленным сбоку. Верхняя строка всегда накрывает шерсть под собой,
+# иначе в кадре зияет дыра.
+# У двух нижних строк нет правой обводки: там хвост сливается с крупом,
+# и обводка читалась бы швом поперёк тела.
+_TAIL_L = [".OO....", "OKKO...", "OBBO...", ".OKKO..", "..OBB..", "..OKK.."]
+_TAIL_M = ["...OO..", "..OKKO.", "..OBBO.", "..OKKO.", "..OBB..", "..OKK.."]
+_TAIL_R = ["....OO.", "...OKKO", "...OBBO", "..OKKO.", "..OBB..", "..OKK.."]
+TAILS = [_TAIL_L, _TAIL_M, _TAIL_R, _TAIL_M]
 TAIL_AT = (1, 2)
 
 # Фазы шага: тёмные лапы, белые носочки
@@ -165,7 +169,7 @@ blink_svg = "\n      ".join(
     for x, y in BLINK
 )
 
-svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="Tequila, a tabby pixel cat, walking and rolling a ball of yarn">
+svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" shape-rendering="crispEdges" role="img" aria-label="Tequila, a tabby pixel cat, walking and rolling a ball of yarn">
   <style>
     .walker {{ animation: walk 12s linear infinite; }}
     @keyframes walk {{
@@ -198,10 +202,12 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewB
   <g class="walker">
     <g class="bob">
       <g>
-{tail_svg}
-      </g>
-      <g>
         {rects(BODY)}
+      </g>
+      <!-- хвост ПОВЕРХ тела: иначе левая обводка тела в строке стыка
+           остаётся видна и читается как случайный тёмный пиксель внутри -->
+      <g>
+{tail_svg}
       </g>
       {blink_svg}
 {leg_svg}
