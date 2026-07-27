@@ -46,10 +46,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          ls -lh metrics_renders/
+          # Экшен кладёт SVG в /metrics_renders (абсолютный путь, не workspace)
+          sudo ls -lh /metrics_renders/
 
           rm -rf /tmp/pub && mkdir -p /tmp/pub
-          cp metrics_renders/*.svg /tmp/pub/
+          sudo cp /metrics_renders/*.svg /tmp/pub/
+          sudo chown -R "$(id -u):$(id -g)" /tmp/pub
 
           cd /tmp/pub
           git init -q -b assets
