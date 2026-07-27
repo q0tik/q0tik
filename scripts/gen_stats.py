@@ -59,6 +59,51 @@ def search_count(q):
     return d.get("total_count") if isinstance(d, dict) else None
 
 
+def graphql(query):
+    if not TOKEN:
+        return None
+    req = urllib.request.Request(
+        "https://api.github.com/graphql",
+        data=json.dumps({"query": query}).encode(),
+        headers={"Authorization": f"Bearer {TOKEN}",
+                 "User-Agent": f"{USER}-profile-card"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return (json.load(r) or {}).get("data")
+    except Exception as e:
+        print(f"  ! GraphQL -> {e}", file=sys.stderr)
+        return None
+
+
+def all_repos():
+    """Список репозиториев владельца.
+
+    /users/{u}/repos отдаёт только публичные — с ним карточка показывала 8
+    вместо 17. Если в METRICS_TOKEN лежит личный токен, /user/repos вернёт
+    ещё и приватные. Берём объединение: так работает и без токена.
+    """
+    out = {}
+    for r in (api(f"users/{USER}/repos?per_page=100&type=owner") or []):
+        out[r["full_name"]] = r
+    mine = api("user/repos?per_page=100&affiliation=owner")
+    if isinstance(mine, list):
+        for r in mine:
+            if (r.get("owner") or {}).get("login") == USER:
+                out[r["full_name"]] = r
+    priv = sum(1 for r in out.values() if r.get("private"))
+    print(f"  репозиториев: {len(out)} (приватных {priv})")
+    return [r for r in out.values() if not r.get("fork")]
+
+
+def pr_count():
+    """PR за всё время. С личным токеном учитываются и приватные."""
+    d = graphql('{user(login:"%s"){pullRequests{totalCount}}}' % USER)
+    n = ((d or {}).get("user") or {}).get("pullRequests", {}).get("totalCount")
+    if n:
+        return n
+    return search_count(f"author:{USER}+type:pr")
+
+
 def contributions():
     """Вклад за год из календаря профиля.
 
@@ -133,8 +178,7 @@ def add_fake_go(langs):
 
 def collect():
     prof = api(f"users/{USER}") or {}
-    repos = api(f"users/{USER}/repos?per_page=100&type=owner") or []
-    own = [r for r in repos if not r.get("fork")]
+    own = all_repos()
 
     langs = Counter()
     for r in own:
@@ -147,7 +191,7 @@ def collect():
         "repos": len(own) or prof.get("public_repos"),
         "stars": sum(r.get("stargazers_count", 0) for r in own),
         "contribs": contributions(),
-        "prs": search_count(f"author:{USER}+type:pr"),
+        "prs": pr_count(),
         "issues": search_count(f"author:{USER}+type:issue"),
         "followers": prof.get("followers"),
         "since": (prof.get("created_at") or "")[:4],

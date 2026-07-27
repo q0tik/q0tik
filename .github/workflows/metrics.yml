@@ -22,7 +22,10 @@ jobs:
       # Сторонних экшенов и PAT не нужно.
       - name: Сгенерировать карточку
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # METRICS_TOKEN — необязательный личный токен только на чтение.
+          # Без него встроенный GITHUB_TOKEN видит лишь этот репозиторий,
+          # и карточка показывает только публичные цифры (8 репо, 13 PR).
+          GITHUB_TOKEN: ${{ secrets.METRICS_TOKEN || secrets.GITHUB_TOKEN }}
         run: python3 scripts/gen_stats.py out/stats.svg
 
       # Ветка assets пересоздаётся с нуля и force-push'ится, поэтому на ней
