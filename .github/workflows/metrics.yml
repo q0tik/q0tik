@@ -1,4 +1,4 @@
-name: Metrics
+name: Stats
 
 on:
   # Раз в 6 часов. Минуты смещены: ровно в :00 GitHub задерживает запуски в часы пик.
@@ -13,52 +13,36 @@ permissions:
   contents: write
 
 jobs:
-  metrics:
+  stats:
     runs-on: ubuntu-latest
     steps:
-      # output_action: none — экшен только генерирует SVG в metrics_renders/,
-      # никаких коммитов не делает. Публикуем их сами, шагом ниже.
-      - name: Общая статистика
-        uses: lowlighter/metrics@v3.34
-        with:
-          token: ${{ secrets.METRICS_TOKEN || secrets.GITHUB_TOKEN }}
-          user: q0tik
-          filename: metrics.svg
-          output_action: none
-          base: header, activity, community, repositories
-          config_timezone: UTC
+      - uses: actions/checkout@v4
 
-      - name: Языки
-        uses: lowlighter/metrics@v3.34
-        with:
-          token: ${{ secrets.METRICS_TOKEN || secrets.GITHUB_TOKEN }}
-          user: q0tik
-          filename: metrics-languages.svg
-          output_action: none
-          base: ""
-          plugin_languages: yes
-          plugin_languages_limit: 6
+      # Свой генератор: только публичный REST API и стандартная библиотека.
+      # Сторонних экшенов и PAT не нужно.
+      - name: Сгенерировать карточку
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/gen_stats.py out/stats.svg
 
       # Ветка assets пересоздаётся с нуля и force-push'ится, поэтому на ней
       # ВСЕГДА ровно один коммит. История не накапливается, репа не пухнет.
-      - name: Публикация на ветку assets
+      - name: Опубликовать на ветку assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # Экшен кладёт SVG в /metrics_renders (абсолютный путь, не workspace)
-          sudo ls -lh /metrics_renders/
+          ls -lh out/
 
           rm -rf /tmp/pub && mkdir -p /tmp/pub
-          sudo cp /metrics_renders/*.svg /tmp/pub/
-          sudo chown -R "$(id -u):$(id -g)" /tmp/pub
+          cp out/*.svg /tmp/pub/
 
           cd /tmp/pub
           git init -q -b assets
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -qm "metrics: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git commit -qm "stats: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" assets
 
           echo "Опубликовано:"
