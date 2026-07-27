@@ -1,9 +1,3 @@
 ### Hi there 👋 I'm Max.
 
-<div>
-  <img src="https://raw.githubusercontent.com/q0tik/q0tik/assets/metrics.svg" alt="GitHub metrics" />
-</div>
-
-<div>
-  <img src="https://raw.githubusercontent.com/q0tik/q0tik/assets/metrics-languages.svg" alt="Top languages" />
-</div>
+<img src="./art/cat.svg" width="480" alt="Пиксельный котик катит клубок">
