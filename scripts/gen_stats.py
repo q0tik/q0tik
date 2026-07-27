@@ -59,6 +59,78 @@ def search_count(q):
     return d.get("total_count") if isinstance(d, dict) else None
 
 
+def contributions():
+    """Вклад за год из календаря профиля.
+
+    search/commits индексирует только публичные репозитории и потому сильно
+    занижает результат. Календарь учитывает и приватную активность — в
+    обезличенном виде, если включена настройка «Private contributions».
+    Сначала пробуем GraphQL, при неудаче парсим публичную страницу календаря.
+    """
+    if TOKEN:
+        body = json.dumps({"query":
+            '{user(login:"%s"){contributionsCollection'
+            '{contributionCalendar{totalContributions}}}}' % USER}).encode()
+        req = urllib.request.Request(
+            "https://api.github.com/graphql", data=body,
+            headers={"Authorization": f"Bearer {TOKEN}",
+                     "User-Agent": f"{USER}-profile-card"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                d = json.load(r)
+            n = (d.get("data") or {}).get("user", {}).get(
+                "contributionsCollection", {}).get(
+                "contributionCalendar", {}).get("totalContributions")
+            if n:
+                print(f"  вклад через GraphQL: {n}")
+                return n
+        except Exception as e:
+            print(f"  ! GraphQL -> {e}", file=sys.stderr)
+
+    # запасной путь: публичная страница календаря, авторизация не нужна
+    try:
+        req = urllib.request.Request(
+            f"https://github.com/users/{USER}/contributions",
+            headers={"User-Agent": f"{USER}-profile-card"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            html = r.read().decode("utf-8", "ignore")
+        import re
+        n = sum(int(m) for m in
+                re.findall(r'(\d+) contributions? on ', html))
+        if n:
+            print(f"  вклад через календарь: {n}")
+            return n
+    except Exception as e:
+        print(f"  ! календарь -> {e}", file=sys.stderr)
+    return None
+
+
+# Подмешанный Go — по просьбе владельца профиля, в реальных репозиториях его нет.
+# Доля подбирается так, чтобы после пересчёта он оказался ровно на столько
+# процентных пунктов ниже Python. Сумма долей при этом остаётся 100%,
+# потому что все проценты считаются от нового общего объёма.
+FAKE_GO_DELTA = 9.37
+
+
+def add_fake_go(langs):
+    """Доводит Go до уровня «на FAKE_GO_DELTA п.п. ниже Python».
+
+    Настоящий Go, когда он появится в репозиториях, не затирается:
+    добавляется только недостающая часть. Если реального Go уже больше
+    цели — не добавляется ничего, и карточка показывает честные данные.
+    """
+    if not langs:
+        return
+    total = sum(langs.values())
+    top = langs.get("Python") or langs.most_common(1)[0][1]
+    have = langs.get("Go", 0)
+    # 100*(have+x)/(T+x) = 100*top/(T+x) - d
+    #   =>  x = (100*(top - have) - d*T) / (100 + d)
+    x = (100 * (top - have) - FAKE_GO_DELTA * total) / (100 + FAKE_GO_DELTA)
+    if x > 0:
+        langs["Go"] = have + int(round(x))
+
+
 def collect():
     prof = api(f"users/{USER}") or {}
     repos = api(f"users/{USER}/repos?per_page=100&type=owner") or []
@@ -69,12 +141,12 @@ def collect():
         d = api(f"repos/{USER}/{r['name']}/languages")
         if d:
             langs.update(d)
+    add_fake_go(langs)
 
-    commits = api(f"search/commits?q=author:{USER}&per_page=1")
     return {
         "repos": len(own) or prof.get("public_repos"),
         "stars": sum(r.get("stargazers_count", 0) for r in own),
-        "commits": commits.get("total_count") if isinstance(commits, dict) else None,
+        "contribs": contributions(),
         "prs": search_count(f"author:{USER}+type:pr"),
         "issues": search_count(f"author:{USER}+type:issue"),
         "followers": prof.get("followers"),
@@ -121,7 +193,7 @@ def render(s):
     # — KPI-плитки: только те, что реально удалось получить —
     tiles = [(l, v) for l, v in (
         ("repos", s["repos"]), ("stars", s["stars"]),
-        ("commits", s["commits"]), ("PRs", s["prs"]),
+        ("contributions", s["contribs"]), ("PRs", s["prs"]),
     ) if v is not None]
 
     if tiles:

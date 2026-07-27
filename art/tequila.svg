@@ -168,8 +168,11 @@
       </g>
     </g>
 
-    <g class="ball" transform="translate(126,48)">
-      <rect x="6" y="0" width="18" height="6" fill="#33260f"/>
+    <!-- перенос и вращение РАЗНЫМИ группами: CSS-свойство transform
+         перебивает одноимённый SVG-атрибут, и мяч улетел бы в 0,0 -->
+    <g transform="translate(126,48)">
+      <g class="ball">
+        <rect x="6" y="0" width="18" height="6" fill="#33260f"/>
         <rect x="0" y="6" width="6" height="6" fill="#33260f"/>
         <rect x="6" y="6" width="6" height="6" fill="#8ecae6"/>
         <rect x="12" y="6" width="6" height="6" fill="#4f96bd"/>
@@ -186,6 +189,7 @@
         <rect x="18" y="18" width="6" height="6" fill="#8ecae6"/>
         <rect x="24" y="18" width="6" height="6" fill="#33260f"/>
         <rect x="6" y="24" width="18" height="6" fill="#33260f"/>
+      </g>
     </g>
   </g>
 </svg>
