@@ -21,7 +21,7 @@ jobs:
       - name: Общая статистика
         uses: lowlighter/metrics@v3.34
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.METRICS_TOKEN || secrets.GITHUB_TOKEN }}
           user: q0tik
           filename: metrics.svg
           output_action: none
@@ -31,7 +31,7 @@ jobs:
       - name: Языки
         uses: lowlighter/metrics@v3.34
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.METRICS_TOKEN || secrets.GITHUB_TOKEN }}
           user: q0tik
           filename: metrics-languages.svg
           output_action: none
